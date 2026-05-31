@@ -462,7 +462,7 @@ function GeneratePage() {
         <div className="output-grid" style={{ gridTemplateColumns: batch === 1 ? "1fr" : "1fr 1fr" }}>
           {outputs.slice(0, batch).map((out, i) => (
             <div key={i} className={`output-card${selected === i ? " selected" : ""}`} onClick={() => setSelected(selected === i ? null : i)}>
-              <div className="output-img" style={{ background: "var(--bg2)", minHeight: batch === 1 ? 400 : 240 }}>, minHeight: batch === 1 ? 400 : 240 }}>
+              <div className="output-img" style={{ background: "var(--bg2)", minHeight: batch === 1 ? 400 : 240 }}>, minHeight: batch === 1 ? 400 : 240 }}
                 {out ? (
                   out.imageUrl ? (
                     <img src={out.imageUrl} alt="generated" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
