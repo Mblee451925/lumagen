@@ -266,37 +266,51 @@ function GeneratePage() {
     setSeed(Math.floor(Math.random() * 9999999));
   }
 
-  function generate() {
+  async function generate() {
     if (!prompt.trim() || generating) return;
     setGenerating(true);
     setProgress(0);
     setOutputs([null, null, null, null]);
+
+    // animate progress while waiting
     let p = 0;
-    const total = steps;
     const iv = setInterval(() => {
-      p += Math.ceil(total / 14);
-      if (p >= total) {
-        p = total;
-        clearInterval(iv);
-        setTimeout(() => {
-          const colors = [
-            ["#1a1a2e", "#7c6fff"], ["#1a1a1a", "#c8a882"], ["#0a1628", "#00d4aa"],
-            ["#1a0a0a", "#e05c3a"], ["#0d0d1a", "#ff6eb4"], ["#0a1a10", "#4dbd74"]
-          ];
-          const newOutputs = Array.from({ length: batch }, (_, i) => ({
-            id: Date.now() + i,
-            seed: Math.floor(Math.random() * 9999999),
-            colors: colors[Math.floor(Math.random() * colors.length)],
-            model: model.name,
-          }));
-          while (newOutputs.length < 4) newOutputs.push(null);
-          setOutputs(newOutputs);
-          setGenerating(false);
-          setProgress(0);
-        }, 200);
-      }
-      setProgress(Math.round((p / total) * 100));
-    }, 120);
+      p = Math.min(p + 2, 90);
+      setProgress(p);
+    }, 300);
+
+    try {
+      const promises = Array.from({ length: batch }, (_, i) =>
+        fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt, model: selectedModel,
+            steps, cfg, ar,
+            seed: seed + i,
+          }),
+        }).then(r => r.json())
+      );
+
+      const results = await Promise.all(promises);
+      clearInterval(iv);
+      setProgress(100);
+
+      const newOutputs = results.map((r, i) => ({
+        id: Date.now() + i,
+        seed: seed + i,
+        imageUrl: r.imageUrl,
+        model: model?.name,
+      }));
+      while (newOutputs.length < 4) newOutputs.push(null);
+      setOutputs(newOutputs);
+    } catch (e) {
+      clearInterval(iv);
+      console.error(e);
+    } finally {
+      setGenerating(false);
+      setProgress(0);
+    }
   }
 
   const creditCost = model ? model.credits * batch : 4;
@@ -448,12 +462,16 @@ function GeneratePage() {
         <div className="output-grid" style={{ gridTemplateColumns: batch === 1 ? "1fr" : "1fr 1fr" }}>
           {outputs.slice(0, batch).map((out, i) => (
             <div key={i} className={`output-card${selected === i ? " selected" : ""}`} onClick={() => setSelected(selected === i ? null : i)}>
-              <div className="output-img" style={{ background: out ? out.colors[0] : "var(--bg2)", minHeight: batch === 1 ? 400 : 240 }}>
+              <div className="output-img" style={{ background: "var(--bg2)", minHeight: batch === 1 ? 400 : 240 }}>, minHeight: batch === 1 ? 400 : 240 }}>
                 {out ? (
-                  <div className="output-img-inner fade-up" style={{ color: out.colors[1] }}>
-                    {svgIcon("image", 32)}
-                    <span style={{ fontSize: 11, opacity: .6, fontFamily: "var(--mono)" }}>{out.model}</span>
-                  </div>
+                  out.imageUrl ? (
+                    <img src={out.imageUrl} alt="generated" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <div className="output-img-inner fade-up" style={{ color: "var(--accent)" }}>
+                      {svgIcon("image", 32)}
+                      <span style={{ fontSize: 11, opacity: .6, fontFamily: "var(--mono)" }}>{out.model}</span>
+                    </div>
+                  )
                 ) : (
                   <div className="output-img-inner" style={{ color: "var(--text3)" }}>
                     {generating ? (
